@@ -1,0 +1,33 @@
+@use '@angular/material' as mat;
+
+@include mat.core();
+
+$bd-primary: mat.define-palette(mat.$indigo-palette);
+$bd-accent:  mat.define-palette(mat.$amber-palette, A200, A100, A400);
+$bd-warn:    mat.define-palette(mat.$red-palette);
+
+$bd-theme: mat.define-light-theme((
+  color: (
+    primary: $bd-primary,
+    accent:  $bd-accent,
+    warn:    $bd-warn,
+  ),
+  typography: mat.define-typography-config(),
+  density: 0,
+));
+
+@include mat.all-component-themes($bd-theme);
+
+html, body { height: 100%; }
+body {
+  margin: 0;
+  font-family: Roboto, "Helvetica Neue", sans-serif;
+}
+
+.bd-spacer { flex: 1 1 auto; }
+
+.severity-critical { color: #d32f2f; font-weight: 600; }
+.severity-high     { color: #f57c00; font-weight: 600; }
+.severity-medium   { color: #fbc02d; }
+.severity-low      { color: #388e3c; }
+.severity-none     { color: #757575; }

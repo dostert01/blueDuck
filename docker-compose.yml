@@ -1,0 +1,77 @@
+# blueDuck — Docker Compose
+#
+# Quick start:
+#   cp .env.example .env
+#   # Edit .env: set BLUEDUCK_SECRET_KEY (required) and BD_DB_PASSWORD
+#   docker compose up --build
+#
+# The application is then available at http://localhost:8080
+
+services:
+
+  # ── PostgreSQL ─────────────────────────────────────────────────────────────
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB:       blueduck
+      POSTGRES_USER:     blueduck
+      POSTGRES_PASSWORD: ${BD_DB_PASSWORD:-changeme}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U blueduck -d blueduck"]
+      interval:     5s
+      timeout:      5s
+      retries:      12
+      start_period: 10s
+    restart: unless-stopped
+    networks:
+      - blueduck_net
+
+  # ── blueDuck daemon ────────────────────────────────────────────────────────
+  blueduck:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "${BLUEDUCK_PORT:-8080}:8080"
+    environment:
+      # Required: 32-byte hex key for AES-256-GCM credential encryption.
+      # Generate with: openssl rand -hex 32
+      BLUEDUCK_SECRET_KEY: ${BLUEDUCK_SECRET_KEY:?Set BLUEDUCK_SECRET_KEY in .env}
+
+      # Database — host is the service name "db"
+      BD_DB_HOST:     db
+      BD_DB_PORT:     5432
+      BD_DB_NAME:     blueduck
+      BD_DB_USER:     blueduck
+      BD_DB_PASSWORD: ${BD_DB_PASSWORD:-changeme}
+
+      # Optional: NVD API key (raises rate limit from 5 → 50 req/30 s)
+      # Get one free at https://nvd.nist.gov/developers/request-an-api-key
+      BD_NVD_API_KEY: ${BD_NVD_API_KEY:-}
+    volumes:
+      # Cloned git repositories — persisted across restarts
+      - repos:/var/lib/blueduck/repos
+      # CVE.org ZIP download cache
+      - cache:/var/lib/blueduck/cache
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - blueduck_net
+
+# ── Named volumes ─────────────────────────────────────────────────────────────
+volumes:
+  postgres_data:
+    driver: local
+  repos:
+    driver: local
+  cache:
+    driver: local
+
+# ── Network ───────────────────────────────────────────────────────────────────
+networks:
+  blueduck_net:
+    driver: bridge

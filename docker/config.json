@@ -1,0 +1,22 @@
+{
+  "server": {
+    "port":          8080,
+    "threads":       0,
+    "document_root": "/var/lib/blueduck/www"
+  },
+  "database": {
+    "host":      "db",
+    "port":      5432,
+    "name":      "blueduck",
+    "user":      "blueduck",
+    "password":  "",
+    "pool_size": 10
+  },
+  "plugin_dir":     "/usr/lib/blueduck/plugins",
+  "repos_dir":      "/var/lib/blueduck/repos",
+  "migrations_dir": "/usr/share/blueduck/migrations",
+  "plugin_config": {
+    "nvd_api_key": "",
+    "cache_dir":   "/var/lib/blueduck/cache"
+  }
+}

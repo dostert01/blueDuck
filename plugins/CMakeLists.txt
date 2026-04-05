@@ -1,0 +1,7 @@
+add_subdirectory(cve_sources/nvd)
+add_subdirectory(cve_sources/cveorg)
+add_subdirectory(dependency_analyzers/cmake_cpp)
+add_subdirectory(dependency_analyzers/npm)
+add_subdirectory(dependency_analyzers/cargo)
+add_subdirectory(dependency_analyzers/python)
+add_subdirectory(dependency_analyzers/nuget)

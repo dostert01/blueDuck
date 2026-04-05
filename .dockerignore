@@ -1,0 +1,39 @@
+# Build outputs
+build/
+cmake-build-*/
+
+# Frontend build outputs and dependencies
+frontend/dist/
+frontend/node_modules/
+frontend/.angular/
+
+# IDE and editor directories
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Git
+.git/
+.gitignore
+
+# Docker files themselves (avoid circular copy)
+Dockerfile
+.dockerignore
+docker-compose.yml
+docker-compose.override.yml
+
+# Environment files (never bake secrets into the image)
+.env
+.env.*
+!.env.example
+
+# Docs
+README.md
+
+# OS noise
+.DS_Store
+Thumbs.db
+
+# Test results
+tests/results/
