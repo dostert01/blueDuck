@@ -11,7 +11,14 @@ namespace fs = std::filesystem;
 namespace blueduck::plugins::cargo {
 
 bool CargoAnalyzer::canAnalyze(const std::string& repo_path) const {
-    return fs::exists(repo_path + "/Cargo.toml");
+    try {
+        for (const auto& entry : fs::recursive_directory_iterator(
+                repo_path, fs::directory_options::skip_permission_denied)) {
+            if (entry.is_regular_file() && entry.path().filename() == "Cargo.toml")
+                return true;
+        }
+    } catch (...) {}
+    return false;
 }
 
 AnalysisResult CargoAnalyzer::analyze(const std::string& repo_path) {

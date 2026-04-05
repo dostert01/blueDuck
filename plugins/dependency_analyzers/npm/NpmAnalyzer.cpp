@@ -12,7 +12,17 @@ using json = nlohmann::json;
 namespace blueduck::plugins::npm {
 
 bool NpmAnalyzer::canAnalyze(const std::string& repo_path) const {
-    return fs::exists(repo_path + "/package.json");
+    try {
+        for (const auto& entry : fs::recursive_directory_iterator(
+                repo_path, fs::directory_options::skip_permission_denied)) {
+            if (!entry.is_regular_file()) continue;
+            if (entry.path().filename() != "package.json") continue;
+            auto rel = fs::relative(entry.path(), repo_path).string();
+            if (rel.find("node_modules") != std::string::npos) continue;
+            return true;
+        }
+    } catch (...) {}
+    return false;
 }
 
 AnalysisResult NpmAnalyzer::analyze(const std::string& repo_path) {

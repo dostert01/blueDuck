@@ -12,16 +12,22 @@ namespace fs = std::filesystem;
 namespace blueduck::plugins::python {
 
 bool PythonAnalyzer::canAnalyze(const std::string& repo_path) const {
-    return fs::exists(repo_path + "/requirements.txt") ||
-           fs::exists(repo_path + "/pyproject.toml")   ||
-           fs::exists(repo_path + "/setup.cfg")        ||
-           fs::exists(repo_path + "/setup.py");
+    try {
+        for (const auto& entry : fs::recursive_directory_iterator(
+                repo_path, fs::directory_options::skip_permission_denied)) {
+            if (!entry.is_regular_file()) continue;
+            const auto& fn = entry.path().filename().string();
+            if (fn == "requirements.txt" || fn == "pyproject.toml" ||
+                fn == "setup.cfg" || fn == "setup.py")
+                return true;
+        }
+    } catch (...) {}
+    return false;
 }
 
 AnalysisResult PythonAnalyzer::analyze(const std::string& repo_path) {
     AnalysisResult result;
 
-    // requirements*.txt files
     try {
         for (const auto& entry : fs::recursive_directory_iterator(
                 repo_path, fs::directory_options::skip_permission_denied)) {
@@ -29,14 +35,12 @@ AnalysisResult PythonAnalyzer::analyze(const std::string& repo_path) {
             const auto& fn = entry.path().filename().string();
             if (fn.rfind("requirements", 0) == 0 && entry.path().extension() == ".txt")
                 parseRequirementsTxt(entry.path().string(), result.dependencies);
+            else if (fn == "pyproject.toml")
+                parsePyprojectToml(entry.path().string(), result.dependencies);
+            else if (fn == "setup.cfg")
+                parseSetupCfg(entry.path().string(), result.dependencies);
         }
     } catch (...) {}
-
-    if (fs::exists(repo_path + "/pyproject.toml"))
-        parsePyprojectToml(repo_path + "/pyproject.toml", result.dependencies);
-
-    if (fs::exists(repo_path + "/setup.cfg"))
-        parseSetupCfg(repo_path + "/setup.cfg", result.dependencies);
 
     result.success = true;
     return result;

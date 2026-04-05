@@ -142,10 +142,12 @@ type SeverityFilter = 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW' | null;
 
         <ng-container matColumnDef="package_name">
           <th mat-header-cell *matHeaderCellDef>Package</th>
-          <td mat-cell *matCellDef="let d">
-            <strong>{{ d.package_name }}</strong>
-            @if (d.package_version) { <span class="version">{{'@'}}{{ d.package_version }}</span> }
-          </td>
+          <td mat-cell *matCellDef="let d"><strong>{{ d.package_name }}</strong></td>
+        </ng-container>
+
+        <ng-container matColumnDef="package_version">
+          <th mat-header-cell *matHeaderCellDef>Version</th>
+          <td mat-cell *matCellDef="let d">{{ d.package_version || '—' }}</td>
         </ng-container>
 
         <tr mat-header-row *matHeaderRowDef="depCols"></tr>
@@ -217,7 +219,7 @@ export class ReportDetailComponent implements OnInit {
   });
 
   findingCols = ['severity', 'cvss_score', 'cve_id', 'package_name', 'ecosystem'];
-  depCols     = ['ecosystem', 'package_name'];
+  depCols     = ['ecosystem', 'package_name', 'package_version'];
 
   ngOnInit() {
     this.projectId = Number(this.route.snapshot.paramMap.get('projectId'));
