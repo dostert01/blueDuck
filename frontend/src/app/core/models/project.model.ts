@@ -38,6 +38,11 @@ export interface ReportFinding {
   cve_id: string;
   severity: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW' | 'NONE';
   cvss_score: number;
+  description: string;
+  cvss_v3_score: number;
+  cvss_v2_score: number;
+  published_at: string;
+  modified_at: string;
 }
 
 export interface ReportDependency {

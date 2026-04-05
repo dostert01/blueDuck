@@ -25,14 +25,19 @@ Json::Value reportRowToJson(const drogon::orm::Row& row) {
 
 Json::Value findingRowToJson(const drogon::orm::Row& row) {
     Json::Value o;
-    o["id"]            = row["id"].as<int>();
-    o["dependency_id"] = row["dependency_id"].as<int>();
-    o["ecosystem"]     = row["ecosystem"].as<std::string>();
-    o["package_name"]  = row["package_name"].as<std::string>();
+    o["id"]              = row["id"].as<int>();
+    o["dependency_id"]   = row["dependency_id"].as<int>();
+    o["ecosystem"]       = row["ecosystem"].as<std::string>();
+    o["package_name"]    = row["package_name"].as<std::string>();
     o["package_version"] = fieldOrEmpty(row["package_version"]);
-    o["cve_id"]        = row["cve_id"].as<std::string>();
-    o["severity"]      = fieldOrEmpty(row["severity"]);
-    o["cvss_score"]    = fieldOr(row["cvss_score"], 0.0f);
+    o["cve_id"]          = row["cve_id"].as<std::string>();
+    o["severity"]        = fieldOrEmpty(row["severity"]);
+    o["cvss_score"]      = fieldOr(row["cvss_score"], 0.0f);
+    o["description"]     = fieldOrEmpty(row["description"]);
+    o["cvss_v3_score"]   = fieldOr(row["cvss_v3_score"], 0.0f);
+    o["cvss_v2_score"]   = fieldOr(row["cvss_v2_score"], 0.0f);
+    o["published_at"]    = fieldOrEmpty(row["published_at"]);
+    o["modified_at"]     = fieldOrEmpty(row["modified_at"]);
     return o;
 }
 
@@ -88,7 +93,10 @@ void ReportController::findings(const drogon::HttpRequestPtr&,
     auto db = Database::client();
     *db << "SELECT rf.id, rf.dependency_id, "
            "d.ecosystem, d.package_name, COALESCE(d.package_version,'') AS package_version, "
-           "cr.cve_id, rf.severity, rf.cvss_score "
+           "cr.cve_id, rf.severity, rf.cvss_score, "
+           "COALESCE(cr.description,'') AS description, "
+           "cr.cvss_v3_score, cr.cvss_v2_score, "
+           "cr.published_at, cr.modified_at "
            "FROM report_findings rf "
            "JOIN dependencies d ON d.id = rf.dependency_id "
            "JOIN cve_records cr ON cr.id = rf.cve_record_id "

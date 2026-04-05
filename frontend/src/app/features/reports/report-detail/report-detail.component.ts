@@ -6,9 +6,11 @@ import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { MatSortModule, Sort } from '@angular/material/sort';
+import { MatDialogModule, MatDialog } from '@angular/material/dialog';
 import { NgClass, DatePipe, DecimalPipe } from '@angular/common';
 import { ProjectService } from '../../../core/services/project.service';
 import { Report, ReportFinding, ReportDependency } from '../../../core/models/project.model';
+import { FindingDetailDialogComponent } from '../finding-detail-dialog/finding-detail-dialog.component';
 
 type SeverityFilter = 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW' | null;
 
@@ -17,7 +19,8 @@ type SeverityFilter = 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW' | null;
   standalone: true,
   imports: [
     RouterLink, MatTableModule, MatChipsModule, MatCardModule,
-    MatIconModule, MatButtonModule, MatSortModule, NgClass, DatePipe, DecimalPipe,
+    MatIconModule, MatButtonModule, MatSortModule, MatDialogModule,
+    NgClass, DatePipe, DecimalPipe,
   ],
   template: `
     @if (report()) {
@@ -114,7 +117,8 @@ type SeverityFilter = 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW' | null;
         </ng-container>
 
         <tr mat-header-row *matHeaderRowDef="findingCols"></tr>
-        <tr mat-row *matRowDef="let row; columns: findingCols;"></tr>
+        <tr mat-row *matRowDef="let row; columns: findingCols;"
+            class="clickable-row" (click)="openFinding(row)"></tr>
       </table>
 
       @if (displayedFindings().length === 0) {
@@ -165,6 +169,8 @@ type SeverityFilter = 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW' | null;
     .full-width { width: 100%; }
     .version { color: #666; margin-left: 4px; }
     .no-findings { color: #388e3c; font-style: italic; }
+    .clickable-row { cursor: pointer; }
+    .clickable-row:hover { background: rgba(0,0,0,.04); }
     .filter-btn { cursor: pointer; transition: transform 0.15s, box-shadow 0.15s; }
     .filter-btn:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
     .filter-btn.active { outline: 3px solid #1976d2; outline-offset: 2px; }
@@ -177,8 +183,9 @@ type SeverityFilter = 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW' | null;
   `]
 })
 export class ReportDetailComponent implements OnInit {
-  private route = inject(ActivatedRoute);
-  private svc   = inject(ProjectService);
+  private route  = inject(ActivatedRoute);
+  private svc    = inject(ProjectService);
+  private dialog = inject(MatDialog);
 
   projectId = 0;
   report       = signal<Report | null>(null);
@@ -227,6 +234,13 @@ export class ReportDetailComponent implements OnInit {
 
   onSort(sort: Sort) {
     this.currentSort.set(sort);
+  }
+
+  openFinding(finding: ReportFinding) {
+    this.dialog.open(FindingDetailDialogComponent, {
+      data: finding,
+      width: '600px',
+    });
   }
 }
 
