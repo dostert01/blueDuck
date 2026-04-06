@@ -58,6 +58,7 @@ private:
     void insertFinding(int report_id, int dep_id,
                         int cve_record_id, const MatchedCve& cve);
     void updateReportSummary(int report_id, const ReportSummary& summary);
+    void carryOverMitigations(int report_id, int project_version_id);
 
     drogon::orm::DbClientPtr db_;
 

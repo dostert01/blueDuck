@@ -51,6 +51,7 @@ int ReportEngine::generateReport(int project_version_id) {
     }
 
     updateReportSummary(report_id, summary);
+    carryOverMitigations(report_id, project_version_id);
     std::cout << std::format("[ReportEngine] Report {} complete: {} deps, {} vulnerable\n",
                               report_id, summary.total_dependencies, summary.vulnerable_count);
     return report_id;
@@ -238,6 +239,40 @@ std::string ReportEngine::normalizePackageName(const std::string& name,
         return n;
     }
     return name;
+}
+
+void ReportEngine::carryOverMitigations(int report_id, int project_version_id) {
+    // Find the project_id for this version
+    auto r = db_->execSqlSync(
+        "SELECT project_id FROM project_versions WHERE id=$1",
+        project_version_id);
+    if (r.empty()) return;
+    int project_id = r[0][0].as<int>();
+
+    // For each finding in the new report, look for a matching mitigation
+    // from any other report of the same project (same cve_record_id and
+    // same dependency ecosystem+package_name).
+    auto carried = db_->execSqlSync(R"(
+        UPDATE report_findings
+        SET mitigation_id = existing_rf.mitigation_id
+        FROM report_findings existing_rf
+        JOIN reports existing_r ON existing_r.id = existing_rf.report_id
+        JOIN project_versions existing_pv ON existing_pv.id = existing_r.project_version_id
+        JOIN dependencies existing_d ON existing_d.id = existing_rf.dependency_id,
+        dependencies new_d
+        WHERE new_d.id = report_findings.dependency_id
+          AND report_findings.report_id = $1
+          AND report_findings.mitigation_id IS NULL
+          AND existing_rf.mitigation_id IS NOT NULL
+          AND existing_pv.project_id = $2
+          AND existing_rf.report_id != $1
+          AND existing_rf.cve_record_id = report_findings.cve_record_id
+          AND existing_d.ecosystem = new_d.ecosystem
+          AND existing_d.package_name = new_d.package_name
+    )", report_id, project_id);
+
+    std::cout << std::format("[ReportEngine] Carried over {} mitigations from previous reports\n",
+                              carried.affectedRows());
 }
 
 } // namespace blueduck
