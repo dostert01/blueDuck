@@ -7,6 +7,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { MatSortModule, Sort } from '@angular/material/sort';
 import { MatDialogModule, MatDialog } from '@angular/material/dialog';
+import { MatTabsModule } from '@angular/material/tabs';
 import { NgClass, DatePipe, DecimalPipe } from '@angular/common';
 import { ProjectService } from '../../../core/services/project.service';
 import { Report, ReportFinding, ReportDependency } from '../../../core/models/project.model';
@@ -25,7 +26,7 @@ type SeverityFilter = 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW' | null;
   imports: [
     RouterLink, MatTableModule, MatChipsModule, MatCardModule,
     MatIconModule, MatButtonModule, MatSortModule, MatDialogModule,
-    MatTooltipModule, MatSlideToggleModule, FormsModule,
+    MatTabsModule, MatTooltipModule, MatSlideToggleModule, FormsModule,
     NgClass, DatePipe, DecimalPipe, MitigationLabelPipe,
   ],
   template: `
@@ -85,119 +86,125 @@ type SeverityFilter = 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW' | null;
         </div>
       }
 
-      <!-- Findings table -->
-      <div class="findings-header">
-        <h2>Findings</h2>
-        <mat-slide-toggle [(ngModel)]="showMitigated"
-                          (ngModelChange)="showMitigatedChanged()">
-          Show mitigated
-        </mat-slide-toggle>
-      </div>
-      <table mat-table [dataSource]="displayedFindings()" matSort (matSortChange)="onSort($event)"
-             class="mat-elevation-z2 full-width">
+      <mat-tab-group>
+        <mat-tab label="Findings ({{ displayedFindings().length }})">
+          <div class="tab-content">
+            <div class="findings-header">
+              <mat-slide-toggle [(ngModel)]="showMitigated"
+                                (ngModelChange)="showMitigatedChanged()">
+                Show mitigated
+              </mat-slide-toggle>
+            </div>
+            <table mat-table [dataSource]="displayedFindings()" matSort (matSortChange)="onSort($event)"
+                   class="mat-elevation-z2 full-width">
 
-        <ng-container matColumnDef="severity">
-          <th mat-header-cell *matHeaderCellDef mat-sort-header>Severity</th>
-          <td mat-cell *matCellDef="let f">
-            <mat-chip [ngClass]="'severity-' + f.severity.toLowerCase()">
-              {{ f.severity }}
-            </mat-chip>
-          </td>
-        </ng-container>
+              <ng-container matColumnDef="severity">
+                <th mat-header-cell *matHeaderCellDef mat-sort-header>Severity</th>
+                <td mat-cell *matCellDef="let f">
+                  <mat-chip [ngClass]="'severity-' + f.severity.toLowerCase()">
+                    {{ f.severity }}
+                  </mat-chip>
+                </td>
+              </ng-container>
 
-        <ng-container matColumnDef="cvss_score">
-          <th mat-header-cell *matHeaderCellDef mat-sort-header>CVSS</th>
-          <td mat-cell *matCellDef="let f">{{ f.cvss_score | number:'1.1-1' }}</td>
-        </ng-container>
+              <ng-container matColumnDef="cvss_score">
+                <th mat-header-cell *matHeaderCellDef mat-sort-header>CVSS</th>
+                <td mat-cell *matCellDef="let f">{{ f.cvss_score | number:'1.1-1' }}</td>
+              </ng-container>
 
-        <ng-container matColumnDef="cve_id">
-          <th mat-header-cell *matHeaderCellDef mat-sort-header>CVE</th>
-          <td mat-cell *matCellDef="let f"><code>{{ f.cve_id }}</code></td>
-        </ng-container>
+              <ng-container matColumnDef="cve_id">
+                <th mat-header-cell *matHeaderCellDef mat-sort-header>CVE</th>
+                <td mat-cell *matCellDef="let f"><code>{{ f.cve_id }}</code></td>
+              </ng-container>
 
-        <ng-container matColumnDef="package_name">
-          <th mat-header-cell *matHeaderCellDef mat-sort-header>Package</th>
-          <td mat-cell *matCellDef="let f">
-            <strong>{{ f.package_name }}</strong>
-            @if (f.package_version) { <span class="version">{{'@'}}{{ f.package_version }}</span> }
-          </td>
-        </ng-container>
+              <ng-container matColumnDef="package_name">
+                <th mat-header-cell *matHeaderCellDef mat-sort-header>Package</th>
+                <td mat-cell *matCellDef="let f">
+                  <strong>{{ f.package_name }}</strong>
+                  @if (f.package_version) { <span class="version">{{'@'}}{{ f.package_version }}</span> }
+                </td>
+              </ng-container>
 
-        <ng-container matColumnDef="ecosystem">
-          <th mat-header-cell *matHeaderCellDef>Ecosystem</th>
-          <td mat-cell *matCellDef="let f">{{ f.ecosystem }}</td>
-        </ng-container>
+              <ng-container matColumnDef="ecosystem">
+                <th mat-header-cell *matHeaderCellDef>Ecosystem</th>
+                <td mat-cell *matCellDef="let f">{{ f.ecosystem }}</td>
+              </ng-container>
 
-        <ng-container matColumnDef="mitigation">
-          <th mat-header-cell *matHeaderCellDef>Mitigation</th>
-          <td mat-cell *matCellDef="let f">
-            @if (f.mitigation_id) {
-              <mat-chip class="mitigated" [matTooltip]="f.mitigation_description">
-                {{ f.mitigation_type | mitigationLabel }}
-              </mat-chip>
+              <ng-container matColumnDef="mitigation">
+                <th mat-header-cell *matHeaderCellDef>Mitigation</th>
+                <td mat-cell *matCellDef="let f">
+                  @if (f.mitigation_id) {
+                    <mat-chip class="mitigated" [matTooltip]="f.mitigation_description">
+                      {{ f.mitigation_type | mitigationLabel }}
+                    </mat-chip>
+                  }
+                </td>
+              </ng-container>
+
+              <ng-container matColumnDef="actions">
+                <th mat-header-cell *matHeaderCellDef></th>
+                <td mat-cell *matCellDef="let f">
+                  @if (!f.mitigation_id) {
+                    <button mat-icon-button matTooltip="Mitigate"
+                            (click)="openMitigation(f); $event.stopPropagation()">
+                      <mat-icon>verified_user</mat-icon>
+                    </button>
+                  } @else {
+                    <button mat-icon-button matTooltip="Remove mitigation" color="warn"
+                            (click)="removeMitigation(f); $event.stopPropagation()">
+                      <mat-icon>remove_circle_outline</mat-icon>
+                    </button>
+                  }
+                </td>
+              </ng-container>
+
+              <tr mat-header-row *matHeaderRowDef="findingCols"></tr>
+              <tr mat-row *matRowDef="let row; columns: findingCols;"
+                  class="clickable-row" (click)="openFinding(row)"
+                  [class.mitigated-row]="row.mitigation_id"></tr>
+            </table>
+
+            @if (displayedFindings().length === 0) {
+              <p class="no-findings">
+                @if (activeFilter()) {
+                  No {{ activeFilter()!.toLowerCase() }} severity findings.
+                } @else {
+                  No vulnerabilities found.
+                }
+              </p>
             }
-          </td>
-        </ng-container>
+          </div>
+        </mat-tab>
 
-        <ng-container matColumnDef="actions">
-          <th mat-header-cell *matHeaderCellDef></th>
-          <td mat-cell *matCellDef="let f">
-            @if (!f.mitigation_id) {
-              <button mat-icon-button matTooltip="Mitigate"
-                      (click)="openMitigation(f); $event.stopPropagation()">
-                <mat-icon>verified_user</mat-icon>
-              </button>
-            } @else {
-              <button mat-icon-button matTooltip="Remove mitigation" color="warn"
-                      (click)="removeMitigation(f); $event.stopPropagation()">
-                <mat-icon>remove_circle_outline</mat-icon>
-              </button>
+        <mat-tab label="All Dependencies ({{ dependencies().length }})">
+          <div class="tab-content">
+            <table mat-table [dataSource]="dependencies()" class="mat-elevation-z2 full-width">
+
+              <ng-container matColumnDef="ecosystem">
+                <th mat-header-cell *matHeaderCellDef>Ecosystem</th>
+                <td mat-cell *matCellDef="let d">{{ d.ecosystem }}</td>
+              </ng-container>
+
+              <ng-container matColumnDef="package_name">
+                <th mat-header-cell *matHeaderCellDef>Package</th>
+                <td mat-cell *matCellDef="let d"><strong>{{ d.package_name }}</strong></td>
+              </ng-container>
+
+              <ng-container matColumnDef="package_version">
+                <th mat-header-cell *matHeaderCellDef>Version</th>
+                <td mat-cell *matCellDef="let d">{{ d.package_version || '—' }}</td>
+              </ng-container>
+
+              <tr mat-header-row *matHeaderRowDef="depCols"></tr>
+              <tr mat-row *matRowDef="let row; columns: depCols;"></tr>
+            </table>
+
+            @if (dependencies().length === 0) {
+              <p class="no-findings">No dependencies found.</p>
             }
-          </td>
-        </ng-container>
-
-        <tr mat-header-row *matHeaderRowDef="findingCols"></tr>
-        <tr mat-row *matRowDef="let row; columns: findingCols;"
-            class="clickable-row" (click)="openFinding(row)"
-            [class.mitigated-row]="row.mitigation_id"></tr>
-      </table>
-
-      @if (displayedFindings().length === 0) {
-        <p class="no-findings">
-          @if (activeFilter()) {
-            No {{ activeFilter()!.toLowerCase() }} severity findings.
-          } @else {
-            No vulnerabilities found.
-          }
-        </p>
-      }
-
-      <!-- All dependencies -->
-      <h2>All Dependencies</h2>
-      <table mat-table [dataSource]="dependencies()" class="mat-elevation-z2 full-width">
-
-        <ng-container matColumnDef="ecosystem">
-          <th mat-header-cell *matHeaderCellDef>Ecosystem</th>
-          <td mat-cell *matCellDef="let d">{{ d.ecosystem }}</td>
-        </ng-container>
-
-        <ng-container matColumnDef="package_name">
-          <th mat-header-cell *matHeaderCellDef>Package</th>
-          <td mat-cell *matCellDef="let d"><strong>{{ d.package_name }}</strong></td>
-        </ng-container>
-
-        <ng-container matColumnDef="package_version">
-          <th mat-header-cell *matHeaderCellDef>Version</th>
-          <td mat-cell *matCellDef="let d">{{ d.package_version || '—' }}</td>
-        </ng-container>
-
-        <tr mat-header-row *matHeaderRowDef="depCols"></tr>
-        <tr mat-row *matRowDef="let row; columns: depCols;"></tr>
-      </table>
-
-      @if (dependencies().length === 0) {
-        <p class="no-findings">No dependencies found.</p>
-      }
+          </div>
+        </mat-tab>
+      </mat-tab-group>
     }
   `,
   styles: [`
@@ -217,8 +224,8 @@ type SeverityFilter = 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW' | null;
     .filter-btn { cursor: pointer; transition: transform 0.15s, box-shadow 0.15s; }
     .filter-btn:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
     .filter-btn.active { outline: 3px solid #1976d2; outline-offset: 2px; }
-    .findings-header { display: flex; align-items: center; gap: 16px; }
-    .findings-header h2 { margin: 0; }
+    .tab-content { padding-top: 16px; }
+    .findings-header { display: flex; align-items: center; gap: 16px; margin-bottom: 12px; }
     .filter-info { margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
     mat-chip.severity-critical { --mdc-chip-label-text-color: white; background: #d32f2f; }
     mat-chip.severity-high     { --mdc-chip-label-text-color: white; background: #f57c00; }
