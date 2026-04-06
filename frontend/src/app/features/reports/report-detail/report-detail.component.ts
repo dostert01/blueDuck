@@ -8,6 +8,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatSortModule, Sort } from '@angular/material/sort';
 import { MatDialogModule, MatDialog } from '@angular/material/dialog';
 import { MatTabsModule } from '@angular/material/tabs';
+import { MatCheckboxModule } from '@angular/material/checkbox';
 import { NgClass, DatePipe, DecimalPipe } from '@angular/common';
 import { ProjectService } from '../../../core/services/project.service';
 import { Report, ReportFinding, ReportDependency } from '../../../core/models/project.model';
@@ -15,7 +16,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { FormsModule } from '@angular/forms';
 import { FindingDetailDialogComponent } from '../finding-detail-dialog/finding-detail-dialog.component';
-import { MitigationDialogComponent } from '../mitigation-dialog/mitigation-dialog.component';
+import { MitigationDialogComponent, MitigationDialogData } from '../mitigation-dialog/mitigation-dialog.component';
 import { MitigationLabelPipe } from '../../../core/pipes/mitigation-label.pipe';
 
 type SeverityFilter = 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW' | null;
@@ -26,8 +27,8 @@ type SeverityFilter = 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW' | null;
   imports: [
     RouterLink, MatTableModule, MatChipsModule, MatCardModule,
     MatIconModule, MatButtonModule, MatSortModule, MatDialogModule,
-    MatTabsModule, MatTooltipModule, MatSlideToggleModule, FormsModule,
-    NgClass, DatePipe, DecimalPipe, MitigationLabelPipe,
+    MatTabsModule, MatTooltipModule, MatSlideToggleModule, MatCheckboxModule,
+    FormsModule, NgClass, DatePipe, DecimalPipe, MitigationLabelPipe,
   ],
   template: `
     @if (report()) {
@@ -94,9 +95,33 @@ type SeverityFilter = 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW' | null;
                                 (ngModelChange)="showMitigatedChanged()">
                 Show mitigated
               </mat-slide-toggle>
+              @if (selectedIds().size > 0) {
+                <button mat-raised-button color="primary"
+                        (click)="mitigateSelected()">
+                  <mat-icon>verified_user</mat-icon>
+                  Mitigate Selected ({{ selectedIds().size }})
+                </button>
+              }
             </div>
             <table mat-table [dataSource]="displayedFindings()" matSort (matSortChange)="onSort($event)"
                    class="mat-elevation-z2 full-width">
+
+              <ng-container matColumnDef="select">
+                <th mat-header-cell *matHeaderCellDef>
+                  <mat-checkbox [checked]="allVisibleSelected()"
+                                [indeterminate]="someVisibleSelected()"
+                                (change)="toggleSelectAll($event.checked)">
+                  </mat-checkbox>
+                </th>
+                <td mat-cell *matCellDef="let f">
+                  @if (!f.mitigation_id) {
+                    <mat-checkbox [checked]="selectedIds().has(f.id)"
+                                  (change)="toggleSelect(f.id, $event.checked)"
+                                  (click)="$event.stopPropagation()">
+                    </mat-checkbox>
+                  }
+                </td>
+              </ng-container>
 
               <ng-container matColumnDef="severity">
                 <th mat-header-cell *matHeaderCellDef mat-sort-header>Severity</th>
@@ -248,6 +273,7 @@ export class ReportDetailComponent implements OnInit {
   activeFilter = signal<SeverityFilter>(null);
   showMitigatedSignal = signal(false);
   showMitigated = false;
+  selectedIds  = signal<Set<number>>(new Set());
   private currentSort = signal<Sort>({ active: '', direction: '' });
 
   displayedFindings = computed(() => {
@@ -275,7 +301,21 @@ export class ReportDetailComponent implements OnInit {
     return data;
   });
 
-  findingCols = ['severity', 'cvss_score', 'cve_id', 'package_name', 'ecosystem', 'mitigation', 'actions'];
+  allVisibleSelected = computed(() => {
+    const unmitigated = this.displayedFindings().filter(f => !f.mitigation_id);
+    if (unmitigated.length === 0) return false;
+    const sel = this.selectedIds();
+    return unmitigated.every(f => sel.has(f.id));
+  });
+
+  someVisibleSelected = computed(() => {
+    const unmitigated = this.displayedFindings().filter(f => !f.mitigation_id);
+    const sel = this.selectedIds();
+    const count = unmitigated.filter(f => sel.has(f.id)).length;
+    return count > 0 && count < unmitigated.length;
+  });
+
+  findingCols = ['select', 'severity', 'cvss_score', 'cve_id', 'package_name', 'ecosystem', 'mitigation', 'actions'];
   depCols     = ['ecosystem', 'package_name', 'package_version'];
 
   ngOnInit() {
@@ -299,6 +339,21 @@ export class ReportDetailComponent implements OnInit {
     this.currentSort.set(sort);
   }
 
+  toggleSelect(id: number, checked: boolean) {
+    const next = new Set(this.selectedIds());
+    if (checked) next.add(id); else next.delete(id);
+    this.selectedIds.set(next);
+  }
+
+  toggleSelectAll(checked: boolean) {
+    const next = new Set(this.selectedIds());
+    for (const f of this.displayedFindings()) {
+      if (f.mitigation_id) continue;
+      if (checked) next.add(f.id); else next.delete(f.id);
+    }
+    this.selectedIds.set(next);
+  }
+
   openFinding(finding: ReportFinding) {
     this.dialog.open(FindingDetailDialogComponent, {
       data: finding,
@@ -308,10 +363,29 @@ export class ReportDetailComponent implements OnInit {
 
   openMitigation(finding: ReportFinding) {
     this.dialog.open(MitigationDialogComponent, {
-      data: finding,
+      data: { findings: [finding] } as MitigationDialogData,
       width: '500px',
     }).afterClosed().subscribe(result => {
-      if (result) this.reloadFindings();
+      if (result) {
+        this.selectedIds.set(new Set());
+        this.reloadFindings();
+      }
+    });
+  }
+
+  mitigateSelected() {
+    const sel = this.selectedIds();
+    const selected = this.findings().filter(f => sel.has(f.id));
+    if (selected.length === 0) return;
+
+    this.dialog.open(MitigationDialogComponent, {
+      data: { findings: selected } as MitigationDialogData,
+      width: '500px',
+    }).afterClosed().subscribe(result => {
+      if (result) {
+        this.selectedIds.set(new Set());
+        this.reloadFindings();
+      }
     });
   }
 

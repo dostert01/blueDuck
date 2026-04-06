@@ -79,6 +79,10 @@ export class ProjectService {
     return this.http.post<Mitigation>(`/api/findings/${findingId}/mitigation`, data);
   }
 
+  createBulkMitigation(findingIds: number[], data: { type: MitigationType; description: string }): Observable<Mitigation> {
+    return this.http.post<Mitigation>('/api/findings/mitigate-bulk', { ...data, finding_ids: findingIds });
+  }
+
   deleteMitigation(findingId: number): Observable<void> {
     return this.http.delete<void>(`/api/findings/${findingId}/mitigation`);
   }
