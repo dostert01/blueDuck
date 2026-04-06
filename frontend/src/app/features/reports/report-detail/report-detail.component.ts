@@ -10,7 +10,12 @@ import { MatDialogModule, MatDialog } from '@angular/material/dialog';
 import { NgClass, DatePipe, DecimalPipe } from '@angular/common';
 import { ProjectService } from '../../../core/services/project.service';
 import { Report, ReportFinding, ReportDependency } from '../../../core/models/project.model';
+import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatSlideToggleModule } from '@angular/material/slide-toggle';
+import { FormsModule } from '@angular/forms';
 import { FindingDetailDialogComponent } from '../finding-detail-dialog/finding-detail-dialog.component';
+import { MitigationDialogComponent } from '../mitigation-dialog/mitigation-dialog.component';
+import { MitigationLabelPipe } from '../../../core/pipes/mitigation-label.pipe';
 
 type SeverityFilter = 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW' | null;
 
@@ -20,7 +25,8 @@ type SeverityFilter = 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW' | null;
   imports: [
     RouterLink, MatTableModule, MatChipsModule, MatCardModule,
     MatIconModule, MatButtonModule, MatSortModule, MatDialogModule,
-    NgClass, DatePipe, DecimalPipe,
+    MatTooltipModule, MatSlideToggleModule, FormsModule,
+    NgClass, DatePipe, DecimalPipe, MitigationLabelPipe,
   ],
   template: `
     @if (report()) {
@@ -80,7 +86,13 @@ type SeverityFilter = 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW' | null;
       }
 
       <!-- Findings table -->
-      <h2>Findings</h2>
+      <div class="findings-header">
+        <h2>Findings</h2>
+        <mat-slide-toggle [(ngModel)]="showMitigated"
+                          (ngModelChange)="showMitigatedChanged()">
+          Show mitigated
+        </mat-slide-toggle>
+      </div>
       <table mat-table [dataSource]="displayedFindings()" matSort (matSortChange)="onSort($event)"
              class="mat-elevation-z2 full-width">
 
@@ -116,9 +128,38 @@ type SeverityFilter = 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW' | null;
           <td mat-cell *matCellDef="let f">{{ f.ecosystem }}</td>
         </ng-container>
 
+        <ng-container matColumnDef="mitigation">
+          <th mat-header-cell *matHeaderCellDef>Mitigation</th>
+          <td mat-cell *matCellDef="let f">
+            @if (f.mitigation_id) {
+              <mat-chip class="mitigated" [matTooltip]="f.mitigation_description">
+                {{ f.mitigation_type | mitigationLabel }}
+              </mat-chip>
+            }
+          </td>
+        </ng-container>
+
+        <ng-container matColumnDef="actions">
+          <th mat-header-cell *matHeaderCellDef></th>
+          <td mat-cell *matCellDef="let f">
+            @if (!f.mitigation_id) {
+              <button mat-icon-button matTooltip="Mitigate"
+                      (click)="openMitigation(f); $event.stopPropagation()">
+                <mat-icon>verified_user</mat-icon>
+              </button>
+            } @else {
+              <button mat-icon-button matTooltip="Remove mitigation" color="warn"
+                      (click)="removeMitigation(f); $event.stopPropagation()">
+                <mat-icon>remove_circle_outline</mat-icon>
+              </button>
+            }
+          </td>
+        </ng-container>
+
         <tr mat-header-row *matHeaderRowDef="findingCols"></tr>
         <tr mat-row *matRowDef="let row; columns: findingCols;"
-            class="clickable-row" (click)="openFinding(row)"></tr>
+            class="clickable-row" (click)="openFinding(row)"
+            [class.mitigated-row]="row.mitigation_id"></tr>
       </table>
 
       @if (displayedFindings().length === 0) {
@@ -176,12 +217,16 @@ type SeverityFilter = 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW' | null;
     .filter-btn { cursor: pointer; transition: transform 0.15s, box-shadow 0.15s; }
     .filter-btn:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
     .filter-btn.active { outline: 3px solid #1976d2; outline-offset: 2px; }
+    .findings-header { display: flex; align-items: center; gap: 16px; }
+    .findings-header h2 { margin: 0; }
     .filter-info { margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
     mat-chip.severity-critical { --mdc-chip-label-text-color: white; background: #d32f2f; }
     mat-chip.severity-high     { --mdc-chip-label-text-color: white; background: #f57c00; }
     mat-chip.severity-medium   { --mdc-chip-label-text-color: black; background: #fbc02d; }
     mat-chip.severity-low      { --mdc-chip-label-text-color: white; background: #388e3c; }
     mat-chip.severity-none     { --mdc-chip-label-text-color: #333; background: #e0e0e0; }
+    mat-chip.mitigated         { --mdc-chip-label-text-color: white; background: #1565c0; }
+    .mitigated-row             { opacity: 0.6; }
   `]
 })
 export class ReportDetailComponent implements OnInit {
@@ -194,10 +239,15 @@ export class ReportDetailComponent implements OnInit {
   findings     = signal<ReportFinding[]>([]);
   dependencies = signal<ReportDependency[]>([]);
   activeFilter = signal<SeverityFilter>(null);
+  showMitigatedSignal = signal(false);
+  showMitigated = false;
   private currentSort = signal<Sort>({ active: '', direction: '' });
 
   displayedFindings = computed(() => {
     let data = [...this.findings()];
+    if (!this.showMitigatedSignal()) {
+      data = data.filter(f => !f.mitigation_id);
+    }
     const filter = this.activeFilter();
     if (filter) {
       data = data.filter(f => f.severity === filter);
@@ -218,7 +268,7 @@ export class ReportDetailComponent implements OnInit {
     return data;
   });
 
-  findingCols = ['severity', 'cvss_score', 'cve_id', 'package_name', 'ecosystem'];
+  findingCols = ['severity', 'cvss_score', 'cve_id', 'package_name', 'ecosystem', 'mitigation', 'actions'];
   depCols     = ['ecosystem', 'package_name', 'package_version'];
 
   ngOnInit() {
@@ -228,6 +278,10 @@ export class ReportDetailComponent implements OnInit {
     this.svc.getReport(reportId).subscribe(r => this.report.set(r));
     this.svc.getFindings(reportId).subscribe(fs => this.findings.set(fs));
     this.svc.getDependencies(reportId).subscribe(ds => this.dependencies.set(ds));
+  }
+
+  showMitigatedChanged() {
+    this.showMitigatedSignal.set(this.showMitigated);
   }
 
   toggleFilter(severity: SeverityFilter) {
@@ -243,6 +297,24 @@ export class ReportDetailComponent implements OnInit {
       data: finding,
       width: '600px',
     });
+  }
+
+  openMitigation(finding: ReportFinding) {
+    this.dialog.open(MitigationDialogComponent, {
+      data: finding,
+      width: '500px',
+    }).afterClosed().subscribe(result => {
+      if (result) this.reloadFindings();
+    });
+  }
+
+  removeMitigation(finding: ReportFinding) {
+    this.svc.deleteMitigation(finding.id).subscribe(() => this.reloadFindings());
+  }
+
+  private reloadFindings() {
+    const reportId = Number(this.route.snapshot.paramMap.get('reportId'));
+    this.svc.getFindings(reportId).subscribe(fs => this.findings.set(fs));
   }
 }
 

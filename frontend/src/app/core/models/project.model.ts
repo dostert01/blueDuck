@@ -43,6 +43,20 @@ export interface ReportFinding {
   cvss_v2_score: number;
   published_at: string;
   modified_at: string;
+  mitigation_id: number;
+  mitigation_type: string;
+  mitigation_description: string;
+  mitigated_at: string;
+}
+
+export type MitigationType = 'NOT_APPLICABLE' | 'FALSE_FINDING' | 'MITIGATED_BY_PROJECT';
+
+export interface Mitigation {
+  id: number;
+  finding_id: number;
+  type: MitigationType;
+  description: string;
+  mitigated_at: string;
 }
 
 export interface ReportDependency {

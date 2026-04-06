@@ -4,6 +4,7 @@ add_library(blueduck_api STATIC
     controllers/ReportController.cpp
     controllers/CveSourceController.cpp
     controllers/CpeMappingController.cpp
+    controllers/MitigationController.cpp
 )
 
 target_link_libraries(blueduck_api

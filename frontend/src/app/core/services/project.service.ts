@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { Project, ProjectVersion, Report, ReportFinding, ReportDependency, CpeMapping, CveSource } from '../models/project.model';
+import { Project, ProjectVersion, Report, ReportFinding, ReportDependency, CpeMapping, Mitigation, MitigationType, CveSource } from '../models/project.model';
 
 @Injectable({ providedIn: 'root' })
 export class ProjectService {
@@ -72,6 +72,15 @@ export class ProjectService {
   generateReport(projectId: number, versionId: number): Observable<{ status: string }> {
     return this.http.post<{ status: string }>(
       `/api/projects/${projectId}/versions/${versionId}/reports`, {});
+  }
+
+  // Mitigations
+  createMitigation(findingId: number, data: { type: MitigationType; description: string }): Observable<Mitigation> {
+    return this.http.post<Mitigation>(`/api/findings/${findingId}/mitigation`, data);
+  }
+
+  deleteMitigation(findingId: number): Observable<void> {
+    return this.http.delete<void>(`/api/findings/${findingId}/mitigation`);
   }
 
   // CPE Mappings

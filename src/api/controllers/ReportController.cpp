@@ -38,6 +38,10 @@ Json::Value findingRowToJson(const drogon::orm::Row& row) {
     o["cvss_v2_score"]   = fieldOr(row["cvss_v2_score"], 0.0f);
     o["published_at"]    = fieldOrEmpty(row["published_at"]);
     o["modified_at"]     = fieldOrEmpty(row["modified_at"]);
+    o["mitigation_id"]   = fieldOr(row["mitigation_id"], 0);
+    o["mitigation_type"] = fieldOrEmpty(row["mitigation_type"]);
+    o["mitigation_description"] = fieldOrEmpty(row["mitigation_desc"]);
+    o["mitigated_at"]    = fieldOrEmpty(row["mitigated_at"]);
     return o;
 }
 
@@ -91,15 +95,19 @@ void ReportController::findings(const drogon::HttpRequestPtr&,
                                  int id)
 {
     auto db = Database::client();
-    *db << "SELECT rf.id, rf.dependency_id, "
+    *db << "SELECT rf.id, rf.dependency_id, rf.mitigation_id, "
            "d.ecosystem, d.package_name, COALESCE(d.package_version,'') AS package_version, "
            "cr.cve_id, rf.severity, rf.cvss_score, "
            "COALESCE(cr.description,'') AS description, "
            "cr.cvss_v3_score, cr.cvss_v2_score, "
-           "cr.published_at, cr.modified_at "
+           "cr.published_at, cr.modified_at, "
+           "m.type AS mitigation_type, "
+           "COALESCE(m.description,'') AS mitigation_desc, "
+           "m.mitigated_at "
            "FROM report_findings rf "
            "JOIN dependencies d ON d.id = rf.dependency_id "
            "JOIN cve_records cr ON cr.id = rf.cve_record_id "
+           "LEFT JOIN report_findings_mitigations m ON m.id = rf.mitigation_id "
            "WHERE rf.report_id=$1 "
            "ORDER BY rf.cvss_score DESC, cr.cve_id"
         << id
