@@ -169,6 +169,23 @@ import { Project, ProjectVersion, Report } from '../../../core/models/project.mo
             <button mat-raised-button color="primary" (click)="saveCredentials()">
               Save Credentials
             </button>
+
+            <h3>Connection Test</h3>
+            <div class="connection-test">
+              <button mat-raised-button color="primary" (click)="testConnection()"
+                      [disabled]="connectionTesting()">
+                <mat-icon>wifi_tethering</mat-icon>
+                {{ connectionTesting() ? 'Testing...' : 'Test Connection' }}
+              </button>
+              @if (connectionResult()) {
+                <div class="connection-result"
+                     [class.success]="connectionResult()!.success"
+                     [class.failure]="!connectionResult()!.success">
+                  <mat-icon>{{ connectionResult()!.success ? 'check_circle' : 'error' }}</mat-icon>
+                  <span>{{ connectionResult()!.message }}</span>
+                </div>
+              }
+            </div>
           </div>
         </mat-tab>
       </mat-tab-group>
@@ -184,8 +201,14 @@ import { Project, ProjectVersion, Report } from '../../../core/models/project.mo
     mat-chip.branch { --mdc-chip-label-text-color: #1565c0; }
     mat-chip.tag { --mdc-chip-label-text-color: #2e7d32; }
     .settings-form { max-width: 500px; }
-    .settings-form h3 { margin-top: 0; }
+    .settings-form h3 { margin: 24px 0 8px; }
+    .settings-form h3:first-child { margin-top: 0; }
     .mono { font-family: monospace; font-size: 0.85em; }
+    .connection-test { display: flex; flex-direction: column; gap: 12px; margin-bottom: 16px; }
+    .connection-result { display: flex; align-items: center; gap: 8px; padding: 12px;
+                         border-radius: 4px; font-weight: 500; }
+    .connection-result.success { background: #e8f5e9; color: #2e7d32; }
+    .connection-result.failure { background: #fbe9e7; color: #c62828; }
   `]
 })
 export class ProjectDetailComponent implements OnInit {
@@ -206,6 +229,9 @@ export class ProjectDetailComponent implements OnInit {
   credPat        = '';
   credSshPrivate = '';
   credSshPublic  = '';
+
+  connectionTesting = signal(false);
+  connectionResult  = signal<{ success: boolean; message: string } | null>(null);
 
   ngOnInit() {
     this.projectId = Number(this.route.snapshot.paramMap.get('projectId'));
@@ -265,6 +291,21 @@ export class ProjectDetailComponent implements OnInit {
   openReport(r: Report) {
     const versionId = r.project_version_id;
     this.router.navigate(['/projects', this.projectId, 'versions', versionId, 'reports', r.id]);
+  }
+
+  testConnection() {
+    this.connectionTesting.set(true);
+    this.connectionResult.set(null);
+    this.svc.testConnection(this.projectId).subscribe({
+      next: result => {
+        this.connectionResult.set(result);
+        this.connectionTesting.set(false);
+      },
+      error: () => {
+        this.connectionResult.set({ success: false, message: 'Request failed' });
+        this.connectionTesting.set(false);
+      },
+    });
   }
 
   saveCredentials() {

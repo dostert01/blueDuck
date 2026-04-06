@@ -138,10 +138,12 @@ projects
 project_credentials          (one row per project)
   project_id → projects
   auth_method                none | pat | ssh_key
-  pat_enc                    AES-256-GCM ciphertext (hex)
-  ssh_private_key_path
-  ssh_public_key_path
+  pat_enc                    AES-256-GCM ciphertext
+  ssh_private_key_path       legacy file-based path
+  ssh_public_key_path        legacy file-based path
   ssh_passphrase_enc
+  ssh_private_key_enc        AES-256-GCM encrypted PEM content
+  ssh_public_key_enc         AES-256-GCM encrypted key content
 
 project_versions             (tracked branches / tags)
   id · project_id → projects
@@ -167,7 +169,7 @@ cve_affected_products        (version ranges per CVE)
   version_end_including   · version_end_excluding
 
 ecosystem_cpe_mapping        (bridges package names → NVD CPE vendor:product)
-  ecosystem · package_name
+  id · ecosystem · package_name  (UNIQUE ecosystem + package_name)
   cpe_vendor · cpe_product
   git_url_pattern            optional URL-based fallback match
 

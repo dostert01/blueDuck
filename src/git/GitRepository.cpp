@@ -85,6 +85,44 @@ FetchResult GitRepository::doFetch(git_repository* repo,
     return { true, "" };
 }
 
+GitRepository::ConnectionTestResult
+GitRepository::testConnection(const std::string& git_url,
+                               const ResolvedCredentials& creds)
+{
+    auto mutable_creds = creds;
+
+    git_remote* remote = nullptr;
+    if (git_remote_create_anonymous(&remote, nullptr, git_url.c_str()) != 0) {
+        // Fallback: create detached remote
+    }
+
+    // For anonymous remotes we need create_detached
+    if (remote) { git_remote_free(remote); remote = nullptr; }
+
+    if (git_remote_create_detached(&remote, git_url.c_str()) != 0)
+        return { false, git2Error("Failed to create remote"), 0 };
+
+    git_remote_callbacks callbacks = GIT_REMOTE_CALLBACKS_INIT;
+    callbacks.credentials = &CredentialProvider::credentialCallback;
+    callbacks.payload     = &mutable_creds;
+
+    if (git_remote_connect(remote, GIT_DIRECTION_FETCH, &callbacks,
+                            nullptr, nullptr) != 0) {
+        std::string err = git2Error("Connection failed");
+        git_remote_free(remote);
+        return { false, err, 0 };
+    }
+
+    const git_remote_head** heads = nullptr;
+    size_t count = 0;
+    git_remote_ls(&heads, &count, remote);
+
+    git_remote_disconnect(remote);
+    git_remote_free(remote);
+
+    return { true, "", count };
+}
+
 std::string GitRepository::checkout(int project_id, const std::string& git_ref) {
     git_repository* repo = openRepo(project_id);
     if (!repo) return "";

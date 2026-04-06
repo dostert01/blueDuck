@@ -219,4 +219,70 @@ void ProjectController::sync(const drogon::HttpRequestPtr&,
         >> [cb](const drogon::orm::DrogonDbException& e) { cb(ApiHelpers::dbError(e)); };
 }
 
+void ProjectController::testConnection(const drogon::HttpRequestPtr&,
+                                        std::function<void(const drogon::HttpResponsePtr&)>&& cb,
+                                        int id)
+{
+    auto db = Database::client();
+    *db << "SELECT p.git_url, pc.auth_method, "
+           "pc.ssh_private_key_path, pc.ssh_public_key_path, pc.pat_enc, "
+           "pc.ssh_private_key_enc, pc.ssh_public_key_enc "
+           "FROM projects p "
+           "LEFT JOIN project_credentials pc ON pc.project_id = p.id "
+           "WHERE p.id=$1" << id
+        >> [cb, id](const drogon::orm::Result& r) {
+               if (r.empty()) return cb(ApiHelpers::notFound("project"));
+
+               ResolvedCredentials creds;
+               std::string method = fieldOr(r[0][1], std::string("none"));
+
+               if (method == "ssh_key") {
+                   creds.method = ResolvedCredentials::Method::SshKey;
+                   if (!r[0][5].isNull()) {
+                       std::string enc_str = r[0][5].as<std::string>();
+                       std::vector<uint8_t> enc(enc_str.begin(), enc_str.end());
+                       creds.ssh_private_key = CredentialProvider::decrypt(enc);
+                   } else if (!r[0][2].isNull()) {
+                       creds.ssh_private_key_path = r[0][2].as<std::string>();
+                   }
+                   if (!r[0][6].isNull()) {
+                       std::string enc_str = r[0][6].as<std::string>();
+                       std::vector<uint8_t> enc(enc_str.begin(), enc_str.end());
+                       creds.ssh_public_key = CredentialProvider::decrypt(enc);
+                   } else if (!r[0][3].isNull()) {
+                       creds.ssh_public_key_path = r[0][3].as<std::string>();
+                   }
+               } else if (method == "pat" && !r[0][4].isNull()) {
+                   creds.method = ResolvedCredentials::Method::Pat;
+                   std::string enc_str = r[0][4].as<std::string>();
+                   std::vector<uint8_t> enc(enc_str.begin(), enc_str.end());
+                   creds.pat = CredentialProvider::decrypt(enc);
+               }
+
+               const std::string& repos_dir =
+                   Application::instance().config().repos_dir;
+
+               // Run synchronously in a thread pool thread so we don't
+               // block the event loop but DO wait for the result.
+               drogon::async_run([cb, git_url = r[0][0].as<std::string>(),
+                                   creds, repos_dir]() -> drogon::Task<> {
+                   GitRepository repo(repos_dir);
+                   auto result = repo.testConnection(git_url, creds);
+
+                   Json::Value resp;
+                   if (result.success) {
+                       resp["success"] = true;
+                       resp["message"] = std::format("Connected successfully — {} refs found",
+                                                      result.ref_count);
+                   } else {
+                       resp["success"] = false;
+                       resp["message"] = result.error_message;
+                   }
+                   cb(ApiHelpers::ok(resp));
+                   co_return;
+               });
+           }
+        >> [cb](const drogon::orm::DrogonDbException& e) { cb(ApiHelpers::dbError(e)); };
+}
+
 } // namespace blueduck

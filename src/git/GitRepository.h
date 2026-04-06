@@ -28,9 +28,18 @@ public:
     explicit GitRepository(std::filesystem::path repos_base_dir);
     ~GitRepository();
 
+    struct ConnectionTestResult {
+        bool        success;
+        std::string error_message;
+        size_t      ref_count = 0;
+    };
+
     CloneResult cloneOrFetch(int project_id,
                               const std::string& git_url,
                               const ResolvedCredentials& creds);
+
+    ConnectionTestResult testConnection(const std::string& git_url,
+                                         const ResolvedCredentials& creds);
 
     std::string checkout(int project_id, const std::string& git_ref);
     std::vector<GitRef> listRefs(int project_id);

@@ -32,6 +32,11 @@ export class ProjectService {
     return this.http.post<{ status: string }>(`/api/projects/${projectId}/sync`, {});
   }
 
+  testConnection(projectId: number): Observable<{ success: boolean; message: string }> {
+    return this.http.post<{ success: boolean; message: string }>(
+      `/api/projects/${projectId}/test-connection`, {});
+  }
+
   // Versions
   getVersions(projectId: number): Observable<ProjectVersion[]> {
     return this.http.get<ProjectVersion[]>(`/api/projects/${projectId}/versions`);
