@@ -19,7 +19,7 @@ FetchContent_Declare(
     GIT_TAG        v1.9.10
     GIT_SHALLOW    TRUE
 )
-FetchContent_MakeAvailable(drogon)  # <-- was: Drogon
+FetchContent_MakeAvailable(Drogon)  # <-- was: Drogon
 FetchContent_Declare(
     dean
     GIT_REPOSITORY https://github.com/dostert/dean.git
