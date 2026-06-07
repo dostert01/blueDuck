@@ -5,7 +5,7 @@ add_library(blueduck_report STATIC
 target_link_libraries(blueduck_report
     PUBLIC
         blueduck_interfaces
-        Drogon::Drogon
+        drogon
 )
 
 target_include_directories(blueduck_report PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/..)

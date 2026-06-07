@@ -5,7 +5,7 @@ add_library(blueduck_db STATIC
 
 target_link_libraries(blueduck_db
     PUBLIC
-        Drogon::Drogon
+        drogon
         blueduck_interfaces
         PostgreSQL::PostgreSQL
 )

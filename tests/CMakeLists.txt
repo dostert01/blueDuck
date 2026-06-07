@@ -48,7 +48,7 @@ target_link_libraries(blueduck_integration_tests
         GTest::GTest
         GTest::Main
         blueduck_db
-        Drogon::Drogon
+        drogon
 )
 
 add_test(NAME IntegrationTests COMMAND blueduck_integration_tests

@@ -16,6 +16,6 @@ target_link_libraries(blueduck
         blueduck_api
         -Wl,--no-whole-archive
         blueduck_interfaces
-        Drogon::Drogon
+        drogon
         ${CMAKE_DL_LIBS}
 )

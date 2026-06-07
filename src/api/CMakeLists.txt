@@ -12,7 +12,7 @@ target_link_libraries(blueduck_api
         blueduck_db
         blueduck_git
         blueduck_report
-        Drogon::Drogon
+        drogon
 )
 
 target_include_directories(blueduck_api PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/..)
