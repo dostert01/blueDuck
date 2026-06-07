@@ -22,7 +22,7 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(Drogon)  # <-- was: Drogon
 FetchContent_Declare(
     dean
-    GIT_REPOSITORY https://github.com/dostert/dean.git
+    GIT_REPOSITORY https://github.com/dostert01/dean.git
     GIT_TAG        main
     GIT_SHALLOW    TRUE
 )
