@@ -13,6 +13,12 @@ public:
 
 private:
     static std::string resolveSeverity(const std::string& json_body);
+
+    /// Infer a blueDuck ecosystem string ("npm", "pypi", "cargo", "nuget")
+    /// from a CVE 5.0 `affected[].collectionURL`. Returns "" when the
+    /// registry is unknown/unsupported — CVE 5.0 has no dedicated
+    /// ecosystem field, so the package registry URL is the only signal.
+    static std::string ecosystemFromCollectionUrl(const std::string& url);
 };
 
 } // namespace blueduck::plugins::cveorg

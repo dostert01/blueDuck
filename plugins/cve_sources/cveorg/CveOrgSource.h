@@ -1,6 +1,12 @@
 #pragma once
 #include <interfaces/ICveSource.h>
+#include <plugins/common/CveDbWriter.h>
 #include <string>
+
+// Forward-declared rather than pulling in <zip.h> here, since it's only
+// used by the .cpp.
+struct zip;
+typedef struct zip zip_t;
 
 namespace blueduck::plugins::cveorg {
 
@@ -30,6 +36,13 @@ private:
     ReleaseAssets discoverAssetUrls();
     SyncResult processBulkZip(const std::string& zip_path);
     bool downloadFile(const std::string& url, const std::string& dest_path);
+
+    /// Walks every entry of an already-open zip archive. CVE JSON 5.0 files
+    /// are parsed and written via `writer`; nested .zip entries (the
+    /// CVEProject "all CVEs" release wraps its data in a zip-within-a-zip)
+    /// are recursed into, up to a small depth limit.
+    void processZipEntries(zip_t* za, CveDbWriter& writer, SyncResult& result,
+                            int depth = 0);
 };
 
 } // namespace blueduck::plugins::cveorg

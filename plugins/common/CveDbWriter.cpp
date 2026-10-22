@@ -49,7 +49,10 @@ int CveDbWriter::upsertCveRecord(const CveData& cve) {
         cve.cve_id.c_str(), cve.description.c_str(), cve.severity.c_str(),
         cve.cvss_v3_score ? v3.c_str() : nullptr,
         cve.cvss_v2_score ? v2.c_str() : nullptr,
-        cve.published_at.c_str(), cve.modified_at.c_str()
+        // published_at/modified_at are timestamptz columns: an empty string
+        // is not a valid value there, only NULL or an actual timestamp.
+        cve.published_at.empty() ? nullptr : cve.published_at.c_str(),
+        cve.modified_at.empty()  ? nullptr : cve.modified_at.c_str()
     };
     int formats[7] = {0,0,0,0,0,0,0};
 

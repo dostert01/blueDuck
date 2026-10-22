@@ -10,8 +10,30 @@
 #include <filesystem>
 #include <format>
 #include <iostream>
+#include <algorithm>
+#include <cctype>
 
 namespace fs = std::filesystem;
+
+namespace {
+
+std::string toLower(std::string s) {
+    std::transform(s.begin(), s.end(), s.begin(),
+                    [](unsigned char c) { return std::tolower(c); });
+    return s;
+}
+
+bool endsWithCi(const std::string& s, const std::string& suffix) {
+    if (s.size() < suffix.size()) return false;
+    return toLower(s.substr(s.size() - suffix.size())) == toLower(suffix);
+}
+
+// Maximum nesting depth for zip-within-zip archives (CVEProject's "all
+// CVEs" release wraps its data one level deep as of this writing).
+// Bounded defensively in case of malformed/malicious archives.
+constexpr int kMaxZipNestingDepth = 4;
+
+} // namespace
 
 namespace blueduck::plugins::cveorg {
 
@@ -127,41 +149,96 @@ SyncResult CveOrgSource::processBulkZip(const std::string& zip_path) {
         return result;
     }
 
+    processZipEntries(za, writer, result);
+
+    zip_close(za);
+
+    std::cout << std::format("[CveOrgSource] Done: {} added, {} failed\n",
+                              result.records_added, result.records_failed);
+    // A handful of bad individual records shouldn't sink an otherwise-productive
+    // sync; only report failure when nothing was imported at all.
+    result.success = result.records_added > 0 || result.records_failed == 0;
+    if (result.records_failed > 0)
+        result.error_message = std::format("{} record(s) failed to upsert (see logs)",
+                                            result.records_failed);
+    return result;
+}
+
+void CveOrgSource::processZipEntries(zip_t* za, CveDbWriter& writer,
+                                      SyncResult& result, int depth) {
+    if (depth > kMaxZipNestingDepth) {
+        std::cerr << "[CveOrgSource] zip nesting depth limit exceeded, aborting descent\n";
+        return;
+    }
+
     zip_int64_t num_entries = zip_get_num_entries(za, 0);
     for (zip_int64_t i = 0; i < num_entries; ++i) {
         const char* entry_name = zip_get_name(za, i, 0);
         if (!entry_name) continue;
 
         std::string name(entry_name);
-        // Only process .json files under cves/ directories
-        if (name.size() < 5 || name.substr(name.size() - 5) != ".json") continue;
-        if (name.find("cves/") == std::string::npos) continue;
 
-        zip_file_t* zf = zip_fopen_index(za, i, 0);
-        if (!zf) continue;
+        if (endsWithCi(name, ".json")) {
+            // CVEProject releases nest CVE JSON files under directories whose
+            // casing varies ("cves/", "deltaCves/", ...); match case-insensitively
+            // rather than relying on one exact spelling.
+            if (toLower(name).find("cves/") == std::string::npos) continue;
 
-        std::string content;
-        char buf[8192];
-        zip_int64_t n;
-        while ((n = zip_fread(zf, buf, sizeof(buf))) > 0)
-            content.append(buf, static_cast<size_t>(n));
-        zip_fclose(zf);
+            zip_file_t* zf = zip_fopen_index(za, i, 0);
+            if (!zf) continue;
 
-        auto cve = CveOrgParser::parse(content);
-        if (cve) {
-            if (writer.upsertCve(*cve))
-                ++result.records_added;
-            else
-                ++result.records_failed;
+            std::string content;
+            char buf[8192];
+            zip_int64_t n;
+            while ((n = zip_fread(zf, buf, sizeof(buf))) > 0)
+                content.append(buf, static_cast<size_t>(n));
+            zip_fclose(zf);
+
+            auto cve = CveOrgParser::parse(content);
+            if (cve) {
+                if (writer.upsertCve(*cve))
+                    ++result.records_added;
+                else
+                    ++result.records_failed;
+            }
+        } else if (endsWithCi(name, ".zip")) {
+            // CVEProject's "all CVEs" release asset is itself a zip whose
+            // single entry is another zip (e.g. "cves.zip") containing the
+            // actual per-CVE JSON files. Read it into memory and recurse.
+            zip_file_t* zf = zip_fopen_index(za, i, 0);
+            if (!zf) continue;
+
+            std::string nested;
+            char buf[1 << 16];
+            zip_int64_t n;
+            while ((n = zip_fread(zf, buf, sizeof(buf))) > 0)
+                nested.append(buf, static_cast<size_t>(n));
+            zip_fclose(zf);
+
+            zip_error_t zerr;
+            zip_error_init(&zerr);
+            zip_source_t* src = zip_source_buffer_create(nested.data(), nested.size(), 0, &zerr);
+            if (!src) {
+                std::cerr << "[CveOrgSource] zip_source_buffer_create failed for "
+                          << name << ": " << zip_error_strerror(&zerr) << "\n";
+                zip_error_fini(&zerr);
+                continue;
+            }
+
+            zip_t* nested_za = zip_open_from_source(src, ZIP_RDONLY, &zerr);
+            if (!nested_za) {
+                std::cerr << "[CveOrgSource] zip_open_from_source failed for "
+                          << name << ": " << zip_error_strerror(&zerr) << "\n";
+                zip_source_free(src);
+                zip_error_fini(&zerr);
+                continue;
+            }
+            zip_error_fini(&zerr);
+
+            processZipEntries(nested_za, writer, result, depth + 1);
+            zip_close(nested_za); // also releases src
         }
     }
-
-    zip_close(za);
-
-    std::cout << std::format("[CveOrgSource] Done: {} added, {} failed\n",
-                              result.records_added, result.records_failed);
-    result.success = (result.records_failed == 0);
-    return result;
 }
 
 } // namespace blueduck::plugins::cveorg

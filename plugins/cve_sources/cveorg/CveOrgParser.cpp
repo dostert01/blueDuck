@@ -1,10 +1,26 @@
 #include "CveOrgParser.h"
 #include <nlohmann/json.hpp>
+#include <algorithm>
 #include <iostream>
 
 namespace blueduck::plugins::cveorg {
 
 using json = nlohmann::json;
+
+std::string CveOrgParser::ecosystemFromCollectionUrl(const std::string& url) {
+    if (url.empty()) return "";
+    std::string lower = url;
+    std::transform(lower.begin(), lower.end(), lower.begin(),
+                    [](unsigned char c) { return std::tolower(c); });
+
+    if (lower.find("registry.npmjs.org") != std::string::npos ||
+        lower.find("npmjs.com")          != std::string::npos) return "npm";
+    if (lower.find("pypi.org")           != std::string::npos) return "pypi";
+    if (lower.find("crates.io")         != std::string::npos) return "cargo";
+    if (lower.find("nuget.org")         != std::string::npos) return "nuget";
+
+    return "";
+}
 
 std::optional<CveDbWriter::CveData> CveOrgParser::parse(const std::string& json_body) {
     json root;
@@ -66,8 +82,14 @@ std::optional<CveDbWriter::CveData> CveOrgParser::parse(const std::string& json_
         // Affected packages
         if (cna.contains("affected")) {
             for (const auto& affected_entry : cna["affected"]) {
-                std::string ecosystem = affected_entry.value("packageName", "");
-                std::string pkg       = affected_entry.value("product", "");
+                // CVE 5.0 has no dedicated ecosystem field: "packageName" is the
+                // actual package/registry name, "product" is a human-readable
+                // product name (and may differ from the registry package name).
+                // Ecosystem must be inferred from collectionURL instead.
+                std::string ecosystem = ecosystemFromCollectionUrl(
+                    affected_entry.value("collectionURL", ""));
+                std::string pkg       = affected_entry.value("packageName", "");
+                if (pkg.empty()) pkg  = affected_entry.value("product", "");
                 std::string cpe       = affected_entry.value("cpes", json::array()).empty()
                                         ? ""
                                         : affected_entry["cpes"][0].get<std::string>();

@@ -8,6 +8,7 @@ add_executable(blueduck_unit_tests
     unit/test_version_compare.cpp
     unit/test_cmake_analyzer.cpp
     unit/test_nvd_parser.cpp
+    unit/test_cveorg_parser.cpp
     unit/test_python_analyzer.cpp
 )
 
@@ -25,6 +26,7 @@ target_link_libraries(blueduck_unit_tests
         blueduck_plugin_cmake_cpp
         blueduck_plugin_python
         blueduck_plugin_nvd
+        blueduck_plugin_cveorg
         nlohmann_json::nlohmann_json
         PostgreSQL::PostgreSQL
 )

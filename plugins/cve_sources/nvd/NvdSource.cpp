@@ -56,7 +56,12 @@ SyncResult NvdSource::sync() {
             return true;
         });
 
-    result.success = (result.records_failed == 0);
+    // A handful of bad individual records shouldn't sink an otherwise-productive
+    // sync; only report failure when nothing was imported at all.
+    result.success = result.records_added > 0 || result.records_failed == 0;
+    if (result.records_failed > 0)
+        result.error_message = std::format("{} record(s) failed to upsert (see logs)",
+                                            result.records_failed);
     return result;
 }
 
