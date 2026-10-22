@@ -518,28 +518,47 @@ no Node, no source code.
 
 ### Prerequisites
 
-| Tool / Library     | Version   | Purpose                            |
-|--------------------|-----------|------------------------------------|
-| GCC or Clang       | C++23     | Compiler                           |
-| CMake              | ≥ 3.25    | Build system                       |
-| Drogon             | ≥ 1.9     | HTTP framework + async ORM         |
-| libgit2            | ≥ 1.7     | Git operations                     |
-| OpenSSL            | ≥ 3.0     | AES-256-GCM encryption             |
-| libpq / PostgreSQL | ≥ 15      | Database (Drogon ORM + CVE plugins)|
-| libcurl            | ≥ 7.88    | HTTP client in CVE plugins         |
-| nlohmann/json      | ≥ 3.11    | JSON parsing in CVE/npm plugins    |
-| pugixml            | ≥ 1.13    | XML parsing in NuGet plugin        |
-| libzip             | ≥ 1.9     | ZIP extraction in CVE.org plugin   |
-| GTest              | ≥ 1.14    | Unit and integration tests         |
-| Node.js            | ≥ 20      | Angular frontend build             |
-| Angular CLI        | 17        | Frontend toolchain                 |
+| Tool / Library     | Version   | Purpose                                      |
+|--------------------|-----------|----------------------------------------------|
+| GCC or Clang       | C++23     | Compiler                                     |
+| CMake              | ≥ 3.25    | Build system                                 |
+| Ninja              | any       | Build tool (used by the `-G Ninja` flag)     |
+| Git                | any       | Source checkout + FetchContent for Drogon    |
+| libgit2            | ≥ 1.7     | Git operations at runtime                    |
+| OpenSSL            | ≥ 3.0     | AES-256-GCM encryption; also used by Drogon  |
+| libpq / PostgreSQL | ≥ 16      | Database (Drogon ORM + CVE plugins)          |
+| libcurl            | ≥ 7.88    | HTTP client in CVE plugins                   |
+| nlohmann/json      | ≥ 3.11    | JSON parsing in CVE/npm plugins              |
+| pugixml            | ≥ 1.14    | XML parsing in NuGet plugin                  |
+| libzip             | ≥ 1.7     | ZIP extraction in CVE.org plugin             |
+| jsoncpp            | ≥ 1.9     | Required by Drogon (fetched automatically)   |
+| zlib               | any       | Required by Drogon (fetched automatically)   |
+| libuuid            | any       | Required by Drogon (fetched automatically)   |
+| brotli             | any       | Required by Drogon (fetched automatically)   |
+| c-ares             | any       | Async DNS, required by Drogon                |
+| GTest              | ≥ 1.14    | Unit and integration tests                   |
+| Node.js            | ≥ 20      | Angular frontend build                       |
+| Angular CLI        | 17        | Frontend toolchain                           |
+
+**Drogon is fetched and built automatically by CMake** (`FetchContent`, tag `v1.9.10`)
+if it is not already installed. Its own dependencies (jsoncpp, zlib, libuuid, brotli,
+c-ares) must be available on the system.
 
 On Ubuntu 24.04:
 ```bash
-sudo apt install cmake ninja-build libgit2-dev libssl-dev libpq-dev \
+sudo apt install build-essential cmake ninja-build git \
+                 libgit2-dev libssl-dev libpq-dev \
                  libcurl4-openssl-dev nlohmann-json3-dev libpugixml-dev \
-                 libzip-dev libgtest-dev
-# Install Drogon from source — see https://github.com/drogonframework/drogon
+                 libzip-dev libgtest-dev \
+                 libjsoncpp-dev zlib1g-dev uuid-dev libbrotli-dev libc-ares-dev
+```
+
+On Arch Linux / CachyOS / Manjaro:
+```bash
+sudo pacman -S base-devel cmake ninja git \
+               libgit2 openssl postgresql-libs \
+               curl nlohmann-json pugixml libzip gtest \
+               jsoncpp zlib util-linux-libs brotli c-ares
 ```
 
 ### Configure and build
@@ -641,6 +660,7 @@ npm start         # http://localhost:4200 — proxies /api → :8080
 
 ```bash
 cmake -B build -G Ninja \
+      -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
       -DCMAKE_BUILD_TYPE=Release \
       -DBUILD_TESTS=OFF \
       -DCMAKE_INSTALL_PREFIX=/usr
